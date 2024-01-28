@@ -3,6 +3,8 @@ from enum import Enum
 
 from pydantic import BaseModel
 
+# Enums
+
 class AccessPermission(Enum):
     """This Enum is used with the ApiKey permissions `int`
     that is a bitwise-flag that directly translates to a list[AccessPermission].
@@ -12,28 +14,17 @@ class AccessPermission(Enum):
     DELETE = 4
     ADMIN = 8
 
+# Pydantic Models
+
 class ApiKey(BaseModel):
     key: str
     permissions: int
 
     def permissions_list(self) -> list[AccessPermission]:
-        """Conveniance function to get the list of AccessPermission enums 
+        """Convenience function to get the list of AccessPermission enums 
         from the `self.permissions` bitwise flag."""
         return [p for p in AccessPermission 
                 if self.permissions & p.value]
-
-    @staticmethod
-    def flag_to_permissions_list(flag: int) -> list[AccessPermission]:
-        """Converts a flag to list[AccessPermission]"""
-        return [p for p in AccessPermission
-                if flag & p.value]
-
-    @staticmethod
-    def flag_from_permissions_list(
-            permissions_list: list[AccessPermission]) -> int:
-        """Creates a bitwise-flag that matches the permission_list""" 
-        return sum(p.value for p in permissions_list)
-
 
 class UserNew(BaseModel):
     username: str
@@ -41,15 +32,16 @@ class UserNew(BaseModel):
 
 class User(BaseModel):
     username: str
-    api_keys: list[str]
 
 class LogNew(BaseModel):
-    api_key: str
     message: str
+    apikey: str
 
 class Log(BaseModel):
     message: str
     log_time: datetime
+
+# Custom Exceptions (and Result types)
 
 class Ok(Exception):
     pass
@@ -59,6 +51,18 @@ class IncorrectPassword(Exception):
 
 class DeletionFailed(Exception):
     pass
+
+# Utilites
+
+def flag_to_permissions_list(flag: int) -> list[AccessPermission]:
+    """Converts a flag to list[AccessPermission]"""
+    return [p for p in AccessPermission
+            if flag & p.value]
+
+def flag_from_permissions_list(
+        permissions_list: list[AccessPermission]) -> int:
+    """Creates a bitwise-flag that matches the permission_list""" 
+    return sum(p.value for p in permissions_list)
 
 if __name__ == "__main__":
     import secrets

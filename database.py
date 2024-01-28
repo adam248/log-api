@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import bcrypt 
 import secrets
 import sqlite3
@@ -91,7 +89,7 @@ class Database:
 
         # make sure you have a permissions int flag first
         if type(permissions) == list:
-            permissions = ApiKey.flag_from_permissions_list(permissions)
+            permissions = flag_from_permissions_list(permissions)
 
         key = self.generate_apikey_str(permissions)
         self.cur.execute('SELECT id FROM User WHERE username = ?', (username,))
@@ -119,7 +117,7 @@ class Database:
 
         # make sure you have a permissions int flag first
         if type(permissions) == list:
-            permissions = ApiKey.flag_from_permissions_list(permissions)
+            permissions = flag_from_permissions_list(permissions)
 
         security_level = 1
         if permissions & AccessPermission.READ.value:
@@ -182,17 +180,18 @@ class Database:
             return IncorrectPassword
         
         user_id = self.get_user_id(username)
-        
-        result = self.delete_all_user_logs(user_id, username, password)
-        # TODO delete all user apikeys 
-        if result is not Ok:
-            return DeletionFailed
 
-
+        # delete user's logs
+        self.cur.execute(
+                'DELETE FROM Log WHERE user_id = ?', (user_id,))
+        # delete user's apikeys
+        self.cur.execute(
+                'DELETE FROM ApiKey WHERE user_id = ?', (user_id,))
+        # delete user
         self.cursor.execute(
                 'DELETE FROM User WHERE username = ?', (username,))
-
         self.commit()
+
         return Ok
 
     def get_user_id(self, username) -> int | None:
@@ -217,17 +216,6 @@ class Database:
         self.commit()
         return Ok
 
-    def delete_all_user_logs(
-            self, user_id: int, username: str, password: str) -> Exception:
-        """Deletes all logs for a given user"""
-        if not self.verify_password(username, password):
-            return IncorrectPassword
-
-        self.cur.execute(
-                'DELETE FROM Log WHERE user_id = ?', (user_id,))
-
-        self.commit()
-        return Ok
 
     def test(self, users: int = 1, logs: int = 1) -> Exception:
         print("Testing tmp `Database` in memory")
@@ -288,7 +276,7 @@ class Database:
         self.delete_user(test_username, test_password)
 
         # User and their logs deletion confirmed
-        assert len(self.select_all_from("ApiKey")) == 0 # haven't deleted them yet
+        assert len(self.select_all_from("ApiKey")) == 0 
         assert len(self.select_all_from("User")) == 0
         assert len(self.select_all_from("Log")) == 0
         print("6: user and user logs deletion... ✔")

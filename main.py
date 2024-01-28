@@ -1,11 +1,8 @@
-from datetime import datetime
-
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
 from common import *
 from database import Database
-
 
 # APP & DATABASE DECLARATION ------------------------------------------------
 
