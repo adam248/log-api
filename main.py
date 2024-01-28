@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
-from data_models import *
+from common import *
 from database import Database
 
 
