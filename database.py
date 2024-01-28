@@ -1,10 +1,20 @@
-import sqlite3
-import bcrypt 
 from datetime import datetime
 
+import bcrypt 
+import secrets
+import sqlite3
+
+from data_models import *
 from exceptions import *
 
 # TODO look for a way to use pydantic more directly with the db
+# TODO look for a way to use pydantic more directly with the db
+# TODO look for a way to use pydantic more directly with the db
+
+# TODO update the Database to reflect the api_key model
+# TODO using apiKeys to create logs instead of passwords
+# TODO use username and password for apikey management
+
 
 class Database:
     def initialize(self, db_path):
@@ -19,7 +29,6 @@ class Database:
         self.connection.commit()
 
     def create_user_table(self):
-        """Creates the Basic User Table"""
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS User (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,10 +38,7 @@ class Database:
         ''')
         self.commit()
 
-    # TODO add an ApiKey table
-
     def create_log_table(self):
-        """Creates the Basic Log Table"""
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS Log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,6 +49,30 @@ class Database:
             )
         ''')
         self.commit()
+
+    def create_apikey_table(self):
+        """Creates an ApiKey table
+
+        The permissions `int` entry is a bitwise-flag system.
+
+        See in data_models.py: the AccessPermission's Enum 
+        declaration for translation or use the Pydantic model ApiKey's 
+        methods to convert between
+        the list of Enums and the bitwise-flag int.
+        """
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ApiKey (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                key VARCHAR UNIQUE NOT NULL,
+                permissions int NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES User (id)
+            )
+        ''')
+        self.commit()
+
+    def create_apikey(self, bytes=16):
+        return secrets.token_urlsafe(bytes)
 
     def select_all_from(self, table):
         self.cursor.execute(f'SELECT * FROM {table}')
