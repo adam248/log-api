@@ -12,7 +12,7 @@ class AccessPermission(Enum):
     WRITE = 1
     READ = 2
     DELETE = 4
-    ADMIN = 8
+    ADMIN = 15 # 1 + 2 + 4 + 8
 
 # Pydantic Models
 
@@ -65,6 +65,12 @@ class IncorrectPassword(Result):
     pass
 
 class InsertionFailed(Result):
+    pass
+
+class InvalidPermission(Result):
+    pass
+
+class UnknownApiKey(Result):
     pass
 
 # Utilites - functions
