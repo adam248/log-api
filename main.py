@@ -6,12 +6,12 @@ from database import Database
 
 # APP & DATABASE DECLARATION ------------------------------------------------
 
-DB_PATH = "log.db"
 
 __version__ = "0.0.1"
 description = """
 Log API allows for simple user-based logging with API keys.
 """
+DB_PATH = "log.db"
 
 app = FastAPI(
         title = 'Log API',
@@ -64,8 +64,12 @@ async def read_users(user_id: int = None, username: str = None) -> list[User]:
 async def create_user(user: UserNew) -> User:
     # TODO user_id is set by the database at creation time
     user = User(username=user.username, user_id=len(fake_user_db))
-    fake_user_db.append(user)
-    return user 
+    if user:
+        return Success
+    else:
+        # TODO find out how to return a HTTP Error code
+        # for example the username may already exist
+        return Fail
 
 
 # LOG ENDPOINTS -------------------------------------------------------------

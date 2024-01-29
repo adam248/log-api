@@ -31,6 +31,7 @@ class UserNew(BaseModel):
     password: str
 
 class User(BaseModel):
+    user_id: int
     username: str
 
 class LogNew(BaseModel):
@@ -38,21 +39,32 @@ class LogNew(BaseModel):
     apikey: str
 
 class Log(BaseModel):
-    message: str
     log_time: datetime
+    message: str
 
-# Custom Exceptions (and Result types)
+# Pydantic Result types
+
+class Success(BaseModel):
+    message: str = "Operation successful"
+
+class Fail(BaseModel):
+    message: str = "Operation failed"
+
+# Custom Exceptions (and Status Result types)
 
 class Ok(Exception):
-    pass
-
-class IncorrectPassword(Exception):
     pass
 
 class DeletionFailed(Exception):
     pass
 
-# Utilites
+class IncorrectPassword(Exception):
+    pass
+
+class InsertionFailed(Exception):
+    pass
+
+# Utilites - functions
 
 def flag_to_permissions_list(flag: int) -> list[AccessPermission]:
     """Converts a flag to list[AccessPermission]"""

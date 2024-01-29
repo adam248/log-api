@@ -5,6 +5,7 @@ import sqlite3
 from common import *
 
 # TODO look for a way to use pydantic more directly with the db
+#       like returning pydantic models directly from db calls...
 
 # TODO update the Database to reflect the api_key model
 # TODO using apiKeys to create logs instead of passwords
@@ -35,6 +36,20 @@ class Database:
             )
         ''')
         self.commit()
+
+    def insert_user(self, username, password) -> User | None:
+        password_hash = self.create_password_hash(password)
+
+        self.cursor.execute('''
+            INSERT INTO User (username, password_hash)
+            VALUES (?, ?)
+        ''', (username, password_hash))
+
+        self.commit()
+        self.cur.execute(
+                'SELECT (id, username) FROM User WHERE username=?', (username,))
+        user = self.cur.fetchone()
+        return User(user_id = user[0], username = user[1])
 
     def create_log_table(self):
         # TODO change user_id to apikey_id to track which apikey created the log
@@ -135,6 +150,7 @@ class Database:
         return self.cursor.fetchall()
 
     def show(self, description = None):
+        """Print out the current state of the database"""
         print("Database:", description if not None else "") 
         print("USERS:")
 
@@ -149,7 +165,7 @@ class Database:
         for log in logs:
             print(log)
 
-    def create_password_hash(self, password):
+    def create_password_hash(self, password) -> str:
         return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
 
     def verify_password(self, username, password) -> bool:
@@ -161,18 +177,6 @@ class Database:
             return bcrypt.checkpw(password.encode(), stored_hash)
         return False
 
-    def insert_user(self, username, password) -> tuple | None:
-        password_hash = self.create_password_hash(password)
-
-        self.cursor.execute('''
-            INSERT INTO User (username, password_hash)
-            VALUES (?, ?)
-        ''', (username, password_hash))
-
-        self.commit()
-        self.cur.execute(
-                'SELECT * FROM User WHERE username=?', (username,))
-        return self.cur.fetchone()
 
     def delete_user(self, username, password) -> Exception:
         """Deletes a user and all their logs"""
