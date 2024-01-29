@@ -12,3 +12,7 @@ Run
 
 If you detach from the tmux `Ctrl-B D` then you can re-attach by `tmux a`.
 
+
+# TODOs
+
+- [ ] switch this to an SSH repo
