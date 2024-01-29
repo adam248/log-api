@@ -20,6 +20,10 @@ Run
 
 If you detach from the tmux `Ctrl-B D` then you can re-attach by `tmux a`.
 
+# Running service directly
+
+- `cd src`
+- `uvicorn main:app --port 1234 --reload`
 
 # TODOs
 
