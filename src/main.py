@@ -7,7 +7,7 @@ from database import Database
 # APP & DATABASE DECLARATION ------------------------------------------------
 
 
-__version__ = "0.1.1"
+__version__ = "0.2.1"
 description = """
 Log API allows for simple user-based logging with API keys.
 """
