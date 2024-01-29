@@ -2,6 +2,14 @@
 
 > A simple logging API service using FastAPI and SQLite3 with Nix as the package manager
 
+# Nix Dev Shell
+
+Make sure `tmux` and `tmuxifier` are installed on your system.
+
+Run
+
+- `nix-shell` and let it flow...
+
 # Tmux + Tmuxifier Dev Env Setup
 
 Run 
