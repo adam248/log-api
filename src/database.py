@@ -11,7 +11,6 @@ from common import *
 # TODO using apiKeys to create logs instead of passwords
 # TODO use username and password for apikey management
 
-
 # TODO try to make a decorator that auto does self.verify_password on a method
 
 class Database:
@@ -50,10 +49,7 @@ class Database:
         ''', (username, password_hash))
 
         self.commit()
-        self.cur.execute(
-                'SELECT id, username FROM User WHERE username=?', (username,))
-        user = self.cur.fetchone()
-        return User(user_id = user[0], username = user[1])
+        return Ok
 
 
     def create_apikey_table(self) -> Result:
@@ -104,6 +100,17 @@ class Database:
         self.commit()
         return Ok
 
+    def get_newest_apikey(self, username) -> str:
+        user_id = self.get_user_id(username)
+
+        q = 'SELECT key FROM ApiKey WHERE user_id = ? ORDER BY id DESC LIMIT 1'
+        self.query(q, (user_id,))
+
+        wrapped_key = self.cur.fetchone()
+        if wrapped_key is not None:
+            return wrapped_key[0]
+        return None
+
     def create_apikey(
             self, username: str, password: str, 
             permissions: list[AccessPermission] | int) -> Result:
@@ -130,16 +137,6 @@ class Database:
         ''', (key, permissions, datetime.now(), user_id))
         self.commit()
         return Ok
-
-    def get_newest_apikey(user) -> str:
-        q = 'SELECT key FROM ApiKey WHERE user_id = ? ORDER BY id DESC LIMIT 1'
-        self.query(q, (user_id))
-
-        wrapped_key = self.cur.fetchone()
-        if wrapped_key is not None:
-            return wrapped_key[0]
-        return None
-
 
     def generate_apikey_str(
             self, permissions: int | list[AccessPermission]) -> str:
@@ -180,6 +177,13 @@ class Database:
             print(user)
         
         print("---")
+        print("APIKEYS:")
+
+        keys = self.select_all_from("ApiKey")
+        for key in keys:
+            print(key)
+        
+        print("---")
         print("LOGS:")
 
         logs = self.select_all_from("User")
@@ -206,18 +210,32 @@ class Database:
         
         user_id = self.get_user_id(username)
 
+        apikey_ids = self.get_all_apikey_ids(username)
+        
         # delete user's logs
-        self.cur.execute(
-                'DELETE FROM Log WHERE user_id = ?', (user_id,))
-        # delete user's apikeys
-        self.cur.execute(
-                'DELETE FROM ApiKey WHERE user_id = ?', (user_id,))
+        for apikey_id in apikey_ids:
+            self.cur.execute(
+                    'DELETE FROM Log WHERE key_id = ?', (apikey_id,))
+
+        for apikey_id in apikey_ids:
+            # delete user's apikeys
+            self.cur.execute(
+                    'DELETE FROM ApiKey WHERE id = ?', (apikey_id,))
         # delete user
         self.cursor.execute(
                 'DELETE FROM User WHERE username = ?', (username,))
         self.commit()
 
         return Ok
+
+    def get_all_apikey_ids(self, username) -> list[int]:
+        user_id = self.get_user_id(username)
+        self.query('SELECT id FROM ApiKey WHERE user_id = ?', (user_id,))
+        wrapped_key_ids = self.cursor.fetchall()
+        if wrapped_key_ids is None:
+            return []
+        return [id[0] for id in wrapped_key_ids]
+
 
     def get_user_id(self, username) -> int | None:
         self.cur.execute(
@@ -227,24 +245,21 @@ class Database:
             return wrapped_user_id[0]
         return None
 
-    def can_permission(
+    def can_permission(self,
             required_permission: AccessPermission, permissions: int) -> bool:
         return required_permission.value & permissions
 
     def insert_log(self, message, key) -> Result:
-        # TODO use apikey with write permissions instead of username and pass
-
         self.cur.execute(
                 'SELECT id, permissions FROM ApiKey WHERE key = ?', (key,))
-        possible_key = self.cur.fetchone()
-        if possible is None:
+        wrapped_key = self.cur.fetchone()
+        if wrapped_key is None:
             return UnknownApiKey
 
-        key_id, permissions = possible_key
+        key_id, permissions = wrapped_key
 
-        # TODO check for WRITE permission 
-        # eg: self.can_permissions(AccessPermission, permissions: int | list)
-        if not self.can_permission(AccessPermission.WRITE, permissions):
+        can_write = self.can_permission(AccessPermission.WRITE, permissions)
+        if not can_write:
             return InvalidPermission
 
         self.cursor.execute('''
@@ -266,7 +281,8 @@ class Database:
         assert len(self.select_all_from("Log")) == 0
         print("1: empty database... ✔")
 
-        print(self.insert_user(test_username, test_password))
+        # add a new user ...
+        self.insert_user(test_username, test_password)
         
         # Datebase has 1 user
         assert len(self.select_all_from("User")) == 1
@@ -277,30 +293,24 @@ class Database:
         assert not self.verify_password(test_username, "incorrect_password")
         print("3: password verification... ✔")
 
-        # TODO create an apikey CRUD management system (without READ or UPDATE)
-        # as UPDATE would cause the security level to change
-        # and READ would mean that if an user was compromised then existing keys
-        # could be discovered easily by a hacker
-        # but if a hacker is forced to create a new API key then it is easy to
-        # undo their actions after the fact (with good database history systems)
-
-        # CREATE (only show the user an API key once on creation!
-
         permissions = [ AccessPermission.WRITE ]
-        new_key = self.create_apikey(test_username, test_password, permissions)
+        
+        self.create_apikey(test_username, test_password, permissions)
+        first_key = new_key = self.get_newest_apikey(test_username)
 
-        print(new_key)
+        self.create_apikey(test_username, test_password, 2)
+        read_only_key = new_key = self.get_newest_apikey(test_username)
 
         # create many keys with different permissions
-        for p in (3, 4, 8, 9):
-            new_key = self.create_apikey(test_username, test_password, p)
-            print(new_key)
+        for p in (4, 8, 15):
+            self.create_apikey(test_username, test_password, p)
+            new_key = self.get_newest_apikey(test_username)
+
 
         assert len(self.select_all_from("ApiKey")) == 5
         print("4a: create api keys... ✔")
 
-        key = new_key[1]
-        self.delete_apikey(test_username, test_password, key)
+        self.delete_apikey(test_username, test_password, new_key)
 
         assert len(self.select_all_from("ApiKey")) == 4
         print("4b: delete api key... ✔")
@@ -309,7 +319,10 @@ class Database:
         # TODO change log insert to use an apikey with WRITE permissions
 
         message = "This is a test log message 124459879827305928735908"
-        self.insert_log(test_username, test_password, message)
+        self.insert_log(message, first_key)
+
+        # Cannot write a log with a read_only key
+        assert self.insert_log(message, read_only_key) == InvalidPermission
 
         # There is 1 log in the Log table...
         assert len(self.select_all_from("Log")) == 1
