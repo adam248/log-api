@@ -12,7 +12,7 @@ while true; do
 		# Use inotifywait to monitor file changes
 
 		# Specific event
-		change=$(inotifywait --event access,move_self "$python_file" 2>/dev/null)
+		change=$(inotifywait --event move_self "$python_file" 2>/dev/null)
 
 		# All events
 		#change=$(inotifywait "$python_file" 2>/dev/null)
