@@ -8,7 +8,7 @@ if initialize_session "log-api"; then
 
   # Load a defined window layout.
   new_window "log-api"
-  run_cmd "nvim src/main.py"
+  run_cmd "nvim"
   split_h 40
   run_cmd "cd src"
   run_cmd "uvicorn main:app --port 1234 --reload"
