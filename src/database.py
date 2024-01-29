@@ -290,7 +290,7 @@ class Database:
         assert len(self.select_all_from("ApiKey")) == 0 
         assert len(self.select_all_from("User")) == 0
         assert len(self.select_all_from("Log")) == 0
-        print("6: user and user logs deletion... ✔")
+        print("6: user, keys and logs deletion... ✔")
 
         print("6: empty database... ✔")
         print("All `Database` tests passed... ✔")
