@@ -13,9 +13,13 @@ in
   mkShell {
     name = "log-api-dev";
     buildInputs = [
+      # required
+      python-with-packages
+
+      # dev env
       tmux
       #tmuxifier # when available in stable channel
-      python-with-packages
+      inotify-tools # for watch.sh
     ];
 
     shellHook = ''
