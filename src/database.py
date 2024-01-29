@@ -23,11 +23,12 @@ class Database:
         self.create_log_table()
         self.create_apikey_table()
 
-    def commit(self):
+    def commit(self) -> Result:
         """Shortcut to self.connection.commit()"""
         self.connection.commit()
+        return Ok
 
-    def create_user_table(self):
+    def create_user_table(self) -> Result:
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS User (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,8 +37,9 @@ class Database:
             )
         ''')
         self.commit()
+        return Ok
 
-    def insert_user(self, username, password) -> User | None:
+    def insert_user(self, username, password) -> Result:
         password_hash = self.create_password_hash(password)
 
         self.cursor.execute('''
@@ -47,11 +49,11 @@ class Database:
 
         self.commit()
         self.cur.execute(
-                'SELECT (id, username) FROM User WHERE username=?', (username,))
+                'SELECT id, username FROM User WHERE username=?', (username,))
         user = self.cur.fetchone()
         return User(user_id = user[0], username = user[1])
 
-    def create_log_table(self):
+    def create_log_table(self) -> Result:
         # TODO change user_id to apikey_id to track which apikey created the log
         # and the apikey can be reversed to a user_id easily as well.
         self.cursor.execute('''
@@ -64,8 +66,9 @@ class Database:
             )
         ''')
         self.commit()
+        return Ok
 
-    def create_apikey_table(self):
+    def create_apikey_table(self) -> Result:
         """Creates an ApiKey table
 
         The permissions `int` entry is a bitwise-flag system.
@@ -85,8 +88,9 @@ class Database:
             )
         ''')
         self.commit()
+        return Ok
 
-    def delete_apikey(self, username: str, password: str, key: str) -> Exception:
+    def delete_apikey(self, username: str, password: str, key: str) -> Result:
         if not self.verify_password(username, password):
             return IncorrectPassword
 
@@ -97,10 +101,10 @@ class Database:
 
     def create_apikey(
             self, username: str, password: str, 
-            permissions: list[AccessPermission] | int) -> ApiKey | Exception:
+            permissions: list[AccessPermission] | int) -> ApiKey | None:
 
         if not self.verify_password(username, password):
-            return IncorrectPassword
+            return None
 
         # make sure you have a permissions int flag first
         if type(permissions) == list:
@@ -178,7 +182,7 @@ class Database:
         return False
 
 
-    def delete_user(self, username, password) -> Exception:
+    def delete_user(self, username, password) -> Result:
         """Deletes a user and all their logs"""
         if not self.verify_password(username, password):
             return IncorrectPassword
@@ -206,7 +210,7 @@ class Database:
             return wrapped_user_id[0]
         return None
 
-    def insert_log(self, username, password, message) -> Exception:
+    def insert_log(self, username, password, message) -> Result:
         if not self.verify_password(username, password):
             return IncorrectPassword
 
@@ -221,7 +225,7 @@ class Database:
         return Ok
 
 
-    def test(self, users: int = 1, logs: int = 1) -> Exception:
+    def test(self, users: int = 1, logs: int = 1) -> Result:
         print("Testing tmp `Database` in memory")
         test_username = 'john'
         test_password = 'password'
@@ -256,20 +260,23 @@ class Database:
 
         print(new_key)
 
-        permissions = 3 # WRITE & READ FLAG
-        new_key = self.create_apikey(test_username, test_password, permissions)
-        print(new_key)
-        assert len(self.select_all_from("ApiKey")) == 2 # haven't deleted them yet
-        print("4: create api keys... ✔")
+        # create many keys with different permissions
+        for p in (3, 4, 8, 9):
+            new_key = self.create_apikey(test_username, test_password, p)
+            print(new_key)
+
+        assert len(self.select_all_from("ApiKey")) == 5
+        print("4a: create api keys... ✔")
 
         key = new_key[1]
         self.delete_apikey(test_username, test_password, key)
 
-        assert len(self.select_all_from("ApiKey")) == 1 # haven't deleted them yet
-        print("4: delete api key... ✔")
+        assert len(self.select_all_from("ApiKey")) == 4
+        print("4b: delete api key... ✔")
 
 
         # TODO change log insert to use an apikey with WRITE permissions
+
         message = "This is a test log message 124459879827305928735908"
         self.insert_log(test_username, test_password, message)
 
