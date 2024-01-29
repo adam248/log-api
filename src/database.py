@@ -15,13 +15,15 @@ from common import *
 # TODO try to make a decorator that auto does self.verify_password on a method
 
 class Database:
-    def initialize(self, db_path):
+    def initialize(self, db_path) -> Result:
         self.DB_PATH = db_path
         self.conn = self.connection = sqlite3.connect(self.DB_PATH)
         self.cur = self.cursor = self.conn.cursor()
+        self.query = self.cursor.execute
         self.create_user_table()
         self.create_apikey_table()
         self.create_log_table()
+        return Ok
 
     def commit(self) -> Result:
         """Shortcut to self.connection.commit()"""
@@ -69,6 +71,8 @@ class Database:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 key VARCHAR UNIQUE NOT NULL,
                 permissions int NOT NULL,
+                created DATETIME NOT NULL,
+                expiry DATETIME,
                 user_id INTEGER NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES User (id)
             )
@@ -102,10 +106,15 @@ class Database:
 
     def create_apikey(
             self, username: str, password: str, 
-            permissions: list[AccessPermission] | int) -> ApiKey | None:
+            permissions: list[AccessPermission] | int) -> Result:
+        """Create's a new ApiKey for the User, but doesn't return it as this is a
+        side-effect function. And we keep pure-functions pure and 
+        side-effect functions, side effect functions. \n
+        If you need to return the newest created apikey then use 
+        `self.get_newest_apikey(user)`"""
 
         if not self.verify_password(username, password):
-            return None
+            return IncorrectPassword
 
         # make sure you have a permissions int flag first
         if type(permissions) == list:
@@ -116,13 +125,20 @@ class Database:
         user_id = self.cur.fetchone()[0]
 
         self.cur.execute('''
-            INSERT INTO ApiKey (key, permissions, user_id)
-            VALUES (?, ?, ?)
-        ''', (key, permissions, user_id))
+            INSERT INTO ApiKey (key, permissions, created, user_id)
+            VALUES (?, ?, ?, ?)
+        ''', (key, permissions, datetime.now(), user_id))
         self.commit()
-        # get the API key back from the database for confirmation of INSERT
-        self.cur.execute('SELECT * FROM ApiKey WHERE key = ?', (key,))
-        return self.cur.fetchone()
+        return Ok
+
+    def get_newest_apikey(user) -> str:
+        q = 'SELECT key FROM ApiKey WHERE user_id = ? ORDER BY id DESC LIMIT 1'
+        self.query(q, (user_id))
+
+        wrapped_key = self.cur.fetchone()
+        if wrapped_key is not None:
+            return wrapped_key[0]
+        return None
 
 
     def generate_apikey_str(
