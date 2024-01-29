@@ -42,7 +42,7 @@ class Log(BaseModel):
     log_time: datetime
     message: str
 
-# Pydantic Result types
+# Pydantic Result types for response bodies
 
 class Success(BaseModel):
     message: str = "Operation successful"
@@ -50,18 +50,21 @@ class Success(BaseModel):
 class Fail(BaseModel):
     message: str = "Operation failed"
 
-# Custom Exceptions (and Status Result types)
+# Result types
 
-class Ok(Exception):
+class Result(Exception):
     pass
 
-class DeletionFailed(Exception):
+class Ok(Result):
     pass
 
-class IncorrectPassword(Exception):
+class DeletionFailed(Result):
     pass
 
-class InsertionFailed(Exception):
+class IncorrectPassword(Result):
+    pass
+
+class InsertionFailed(Result):
     pass
 
 # Utilites - functions
