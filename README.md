@@ -1,6 +1,6 @@
 # Log API
 
-> A simple logging API service using FastAPI and SQLite3
+> A simple logging API service using FastAPI and SQLite3 with Nix as the package manager
 
 # Tmux + Tmuxifier Dev Env Setup
 
