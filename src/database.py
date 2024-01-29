@@ -20,8 +20,8 @@ class Database:
         self.conn = self.connection = sqlite3.connect(self.DB_PATH)
         self.cur = self.cursor = self.conn.cursor()
         self.create_user_table()
-        self.create_log_table()
         self.create_apikey_table()
+        self.create_log_table()
 
     def commit(self) -> Result:
         """Shortcut to self.connection.commit()"""
@@ -53,20 +53,6 @@ class Database:
         user = self.cur.fetchone()
         return User(user_id = user[0], username = user[1])
 
-    def create_log_table(self) -> Result:
-        # TODO change user_id to apikey_id to track which apikey created the log
-        # and the apikey can be reversed to a user_id easily as well.
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS Log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                message TEXT NOT NULL,
-                datetime DATETIME NOT NULL,
-                user_id INTEGER NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES User (id)
-            )
-        ''')
-        self.commit()
-        return Ok
 
     def create_apikey_table(self) -> Result:
         """Creates an ApiKey table
@@ -85,6 +71,21 @@ class Database:
                 permissions int NOT NULL,
                 user_id INTEGER NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES User (id)
+            )
+        ''')
+        self.commit()
+        return Ok
+
+    def create_log_table(self) -> Result:
+        # TODO change user_id to apikey_id to track which apikey created the log
+        # and the apikey can be reversed to a user_id easily as well.
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message TEXT NOT NULL,
+                datetime DATETIME NOT NULL,
+                key_id INTEGER NOT NULL,
+                FOREIGN KEY (key_id) REFERENCES ApiKey (id)
             )
         ''')
         self.commit()
@@ -210,16 +211,30 @@ class Database:
             return wrapped_user_id[0]
         return None
 
-    def insert_log(self, username, password, message) -> Result:
-        if not self.verify_password(username, password):
-            return IncorrectPassword
+    def can_permission(
+            required_permission: AccessPermission, permissions: int) -> bool:
+        return required_permission.value & permissions
 
-        user_id = self.get_user_id(username)
+    def insert_log(self, message, key) -> Result:
+        # TODO use apikey with write permissions instead of username and pass
+
+        self.cur.execute(
+                'SELECT id, permissions FROM ApiKey WHERE key = ?', (key,))
+        possible_key = self.cur.fetchone()
+        if possible is None:
+            return UnknownApiKey
+
+        key_id, permissions = possible_key
+
+        # TODO check for WRITE permission 
+        # eg: self.can_permissions(AccessPermission, permissions: int | list)
+        if not self.can_permission(AccessPermission.WRITE, permissions):
+            return InvalidPermission
 
         self.cursor.execute('''
-            INSERT INTO Log (user_id, message, datetime)
+            INSERT INTO Log (message, datetime, key_id)
             VALUES (?, ?, ?)
-        ''', (user_id, message, datetime.now()))
+        ''', (message, datetime.now(), key_id))
 
         self.commit()
         return Ok
