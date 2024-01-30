@@ -73,6 +73,9 @@ class InvalidPermission(Result):
 class UnknownApiKey(Result):
     pass
 
+class NotImplemented(Result):
+    pass
+
 # Utilites - functions
 
 def flag_to_permissions_list(flag: int) -> list[AccessPermission]:
