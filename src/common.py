@@ -12,7 +12,7 @@ class AccessPermission(Enum):
     WRITE = 1
     READ = 2
     DELETE = 4
-    ADMIN = 15 # 1 + 2 + 4 + 8
+    ADMIN = 8
 
 # Pydantic Models
 
