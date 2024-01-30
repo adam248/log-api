@@ -4,11 +4,9 @@ import sqlite3
 
 from common import *
 
-# TODO look for a way to use pydantic more directly with the db
-#       like returning pydantic models directly from db calls...
+# NOTE: keep side-effect functions seperate from read_only 
+#       and other pure functions
 
-# TODO update the Database to reflect the api_key model
-# TODO using apiKeys to create logs instead of passwords
 # TODO use username and password for apikey management
 
 # TODO try to make a decorator that auto does self.verify_password on a method
@@ -91,14 +89,39 @@ class Database:
         self.commit()
         return Ok
 
-    def delete_apikey(self, username: str, password: str, key: str) -> Result:
+    def get_key_id(self, key) -> int | None:
+        self.query('SELECT id FROM ApiKey WHERE key = ?', (key,))
+        wrapped_key = self.cur.fetchone()
+        if wrapped_key is None:
+            return None
+        return wrapped_key[0]
+
+    def delete_logs_created_with(self, key: str | int) -> Result:
+        key_id = key if type(key) is int else self.get_key_id(key)
+        self.query('DELETE FROM Log WHERE key_id = ?', (key_id,))
+        return Ok
+
+    def delete_apikey(
+            self, username: str, password: str, key: str | int) -> Result:
+        """Deletes a key and all logs created with that key"""
         if not self.verify_password(username, password):
             return IncorrectPassword
 
+        key_id = key if type(key) is int else self.get_key_id(key)
+
+        self.delete_logs_created_with(key_id)
+
         self.cursor.execute(
-                'DELETE FROM ApiKey WHERE key = ?', (key,))
+                'DELETE FROM ApiKey WHERE id = ?', (key_id,))
         self.commit()
         return Ok
+
+    def revoke_all_apikeys(self, username: str, password: str) -> Result:
+        """Deletes all apikeys for a certain user 
+        (deleting the logs made by those keys as well.)"""
+        # TODO just use self.delete_apikey but in a for loop
+        return NotImplemented
+
 
     def get_newest_apikey(self, username) -> str:
         user_id = self.get_user_id(username)
@@ -209,18 +232,12 @@ class Database:
             return IncorrectPassword
         
         user_id = self.get_user_id(username)
-
         apikey_ids = self.get_all_apikey_ids(username)
-        
-        # delete user's logs
-        for apikey_id in apikey_ids:
-            self.cur.execute(
-                    'DELETE FROM Log WHERE key_id = ?', (apikey_id,))
 
-        for apikey_id in apikey_ids:
-            # delete user's apikeys
-            self.cur.execute(
-                    'DELETE FROM ApiKey WHERE id = ?', (apikey_id,))
+        # delete keys and logs
+        for key_id in apikey_ids:
+            self.delete_apikey(username, password, key_id)
+        
         # delete user
         self.cursor.execute(
                 'DELETE FROM User WHERE username = ?', (username,))
