@@ -123,16 +123,43 @@ class Database:
         return NotImplemented
 
 
-    def get_newest_apikey(self, username) -> str:
+    def get_newest_apikey(self, username) -> str | None:
         user_id = self.get_user_id(username)
 
         q = 'SELECT key FROM ApiKey WHERE user_id = ? ORDER BY id DESC LIMIT 1'
         self.query(q, (user_id,))
 
         wrapped_key = self.cur.fetchone()
-        if wrapped_key is not None:
-            return wrapped_key[0]
-        return None
+        if wrapped_key is None:
+            return None
+        return wrapped_key[0]
+
+    def generate_apikey_str(
+            self, permissions: int | list[AccessPermission]) -> str:
+        """Higher the byte count the higher the security, but the slower TX/RX\n
+        permissions effect the security_level:
+        1: 16 bytes long for WRITE_ONLY, 
+        2: 32 (16*2) bytes for READ, 
+        3: 48 (16*3) for DELETE
+        4: 64 (16*4) bytes long for ADMIN (ADMIN=all_permissions_a_user_has)
+        """
+
+        # make sure you have a permissions int flag first
+        if type(permissions) == list:
+            permissions = flag_from_permissions_list(permissions)
+
+        security_level = 1
+        if permissions & AccessPermission.READ.value:
+            security_level = 2
+        if permissions & AccessPermission.DELETE.value:
+            security_level = 3
+        if permissions & AccessPermission.ADMIN.value:
+            security_level = 4
+
+        key = secrets.token_urlsafe(16 * security_level)
+
+        return key
+
 
     def create_apikey(
             self, username: str, password: str, 
@@ -161,29 +188,6 @@ class Database:
         self.commit()
         return Ok
 
-    def generate_apikey_str(
-            self, permissions: int | list[AccessPermission]) -> str:
-        """Higher the byte count the higher the security, but the slower TX/RX\n
-        permissions effect the security_level:
-        1: 16 bytes long for WRITE_ONLY, 
-        2: 32 (16*2) bytes for READ, 
-        3: 48 (16*3) for DELETE
-        4: 64 (16*4) bytes long for ADMIN (ADMIN=all_permissions_a_user_has)
-        """
-
-        # make sure you have a permissions int flag first
-        if type(permissions) == list:
-            permissions = flag_from_permissions_list(permissions)
-
-        security_level = 1
-        if permissions & AccessPermission.READ.value:
-            security_level = 2
-        if permissions & AccessPermission.DELETE.value:
-            security_level = 3
-        if permissions & AccessPermission.ADMIN.value:
-            security_level = 4
-
-        return secrets.token_urlsafe(16 * security_level)
 
 
     def select_all_from(self, table_name: str) -> list[tuple]:
@@ -332,9 +336,6 @@ class Database:
         assert len(self.select_all_from("ApiKey")) == 4
         print("4b: delete api key... ✔")
 
-
-        # TODO change log insert to use an apikey with WRITE permissions
-
         message = "This is a test log message 124459879827305928735908"
         self.insert_log(message, first_key)
 
@@ -345,6 +346,10 @@ class Database:
         assert len(self.select_all_from("Log")) == 1
         print("5: one log in db... ✔")
 
+        self.delete_user(test_username, "incorrect-PassWord")
+        assert len(self.select_all_from("User")) == 1
+        print("6: user not deleted if wrong password")
+
         self.delete_user(test_username, test_password)
 
         # User and their logs deletion confirmed
@@ -353,8 +358,27 @@ class Database:
         assert len(self.select_all_from("Log")) == 0
         print("6: user, keys and logs deletion... ✔")
 
-        print("6: empty database... ✔")
+        print("7: empty database... ✔")
         print("All `Database` tests passed... ✔")
+
+        print("Testing unit tests...")
+
+        AP = AccessPermission
+
+        perms_and_lengths = [
+                (1,22), (2,43), (4,64), (8,86), 
+                (3,43), # WRITE & READ
+                ([AP.WRITE], 22),
+                ([AP.WRITE, AP.READ], 43),
+                ([AP.READ, AP.DELETE, AP.ADMIN], 86),
+                ]
+
+        # test for variable len keys based on permissions
+        for p, l in perms_and_lengths:
+            key = self.generate_apikey_str(p)
+            assert len(key) == l
+
+        print("1: self.generate_apikey_str with diff permissions... ✔")
 
         return Ok
 
