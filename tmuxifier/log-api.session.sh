@@ -22,6 +22,7 @@ if initialize_session "log-api"; then
   run_cmd "firefox --private-window http://localhost:1234 &"
   run_cmd "sleep 4"
   run_cmd "firefox --private-window https://fastapi.tiangolo.com/tutorial/body/ &"
+  run_cmd "firefox --private-window https://www.youtube.com/watch?v=lWTzqPfy1gE &"
 
   # Select the default active window on session creation.
   select_window 0

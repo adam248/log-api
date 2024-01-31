@@ -45,6 +45,7 @@ fake_user_db = [
         ]
 
 
+# TODO this call should only be for ADMIN users
 @app.get("/users")
 async def read_users(user_id: int = None, username: str = None) -> list[User]:
     """ 

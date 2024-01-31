@@ -27,4 +27,4 @@ If you detach from the tmux `Ctrl-B D` then you can re-attach by `tmux a`.
 
 # TODOs
 
-- [x] switch this to an SSH repo
+- [ ] Connect the backend to the front
